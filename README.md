@@ -1,73 +1,143 @@
-# C++ vectors for Arduino (ESP boards)
+# Vectors for Arduino (ESP boards)
 
 
-vector.hpp is based on [Tom Stewart's work](https://github.com/tomstewart89/Vector) with major differences:
+vector.hpp is based on [Tom Stewart's work](https://github.com/tomstewart89/Vector) with the following differences:
 
 
- - Syntax is closer to standard C++ vectors,
- - Sorting is added,
- - min_element and max_element functions are added
- - Error handling added,
- - Internal storage structure is different and also the logic for handling capacity,
- - Supports also Arduino Strings.
+- Syntax is closer to STL C++ vectors.
+
+- Internal storage structure is different and also the logic for handling capacity,
+ 
+- Sorting is added.
+
+- min_element and max_element functions are added.
+
+- Error handling added.
+
+Not all vector member functions are supported (yet), but program interface is more or less compatible with STL C++ vectors to make the use as simple as possible.
 
 
-I have tried supporting vectors similar to STL C++ vectors but not all vector member functions are supported (yet). Furthermore vectors are not completely general regarding all possible data types since many things can go wrong with them, especially when the controller is running out of memory. All the exceptions need to be handled somehow.
-
-
-Arduino does not have try {} catch () {} C++ functionality so the error handling (like running out of memory, etc) needed a different approach.
-
-Errors can be checked for each individual function call ...
+### Examples of vector constructors
 
 ```C++
-    vector<int> v1;
-    vector<int>::errorCode e = v1.push_back (100);
-    if (e == vector<int>::OK)
-        Serial.println ("push_back succeded");
-    else
-        Serial.println ("push_back error " + String (e));
+vector<String> v1;                          // empty vector of Strings
+vector<int> v2 ( { 100, 200, 300, 400 } );  // constructor of vector of integeers from brace enclosed initializer list
+vector<int> v3 = { 500, 600, 700, 800 };    // constructor of vector of integeers and its initialization from brace enclosed initializer list
+vector<int> v4 = v3;                        // copy-constructor
 ```
 
-... or once after multiple operations:
+### Examples of vector assignment
 
 ```C++
-    vector<int> v2;
-    for (int i = 1; i <= 100; i++)
-        v2.push_back (i);
-    if (v2.lastErrorCode == v2.OK)
-        Serial.println ("100 push_backs succeded");
-    else {
-        Serial.println ("100 push_backs error " + String (v2.lastErrorCode));
-        v2.clearLastErrorCode (); // clear lastErrorCode before next operations
-    }
+v2 = { 3, 2, 1 };                           // assignment from brace enclosed initializer list
+v3 = v2;                                    // assignemnt from another vector
 ```
 
-All possible Arduino String errors need to be handled within the code. There are more things that can go wrong when dealing with Stings than when dealing with integers, for example. Consider the following two vector.find cases. In the integer case find can only return -1 (NOT_FOUND) or a valid index of the element being found, whereas in the String case, it is also possible that the controller can't even construct an argument String that gets passed to find function due to the lack of memory. Find function can't even start searching. After returning we can not be sure if the element exists in the vector or not. 
+### Example of vector comparison
 
 ```C++
-    vector<int> vi = { 1, 2, 3 };
-    if (vi.lastErrorCode != vi.OK) {
-        Serial.printf ("failed to initialize the vector\n"); // What can go wrong? Controller may not have enough free memory to put all the elements into the vector.
-    } else {
-        int f = vi.find (2);
-        if (f < 0) Serial.printf ("element not found\n"); // Well, the element 2 will in this case always be found at position 1, since vector initialization succeeded.
-        else Serial.printf ("element found at position %i\n", f);
-    }
-
-    vector<String> vstring = { "one", "two", "tree" };
-    if (vstring.lastErrorCode != vstring.OK) {
-        Serial.printf ("failed to initialize the vector\n"); // What can go wrong? Controller may not have enough free memory to put all the elements into the vector.
-    } else {
-        int f = vstring.find ("two");
-        switch (f) {
-          case vstring.NOT_FOUND:   Serial.printf ("element not found\n"); // The element "two" should be found at possition 1 if there is no other error
-                                    break;
-          case vstring.BAD_ALLOC:   Serial.printf ("find failed, that doesn't mean that the element is not there\n"); // Creation of find parameter failed due to lack of memory so find couldn't even start searching
-                                    break;
-          default:                  Serial.printf ("element found at position %i\n", f);
-                                    break;
-        }
-    }
+if ( v2 == v3 )
+    Serial.println ("v2 and v3 are equal");
+else
+    Serial.println ("v2 and v3 are different");
 ```
 
 
+### Examples of inserting new elements to the vector
+
+```C++
+v3.push_back (4);                           // insert 4 at the end of the vector
+v3.push_front (5);                          // please note that push_front is not a STL C++ vector member function
+v3.insert (2, 6);                           // insert 6 at position 2
+```
+
+
+### Example of searching for an element in the vector
+
+```C++
+int position = v3.find (4);
+if (position >= 0)
+    Serial.println ("4 found in v3 at position " + String (position));
+else
+    Serial.println ("4 not found in v3");
+```
+
+
+### Examples of deleting elements from the vector
+
+```C++
+v3.erase (position);                        // delete element at selected position
+v3.pop_back ();                             // delete an element at the end of the vector
+v3.pop_front ();                            // please note that pop_front is not a STL C++ vector member function
+```
+
+
+### Examples of scanning through the vector elements
+
+```C++
+for (int i = 0; i < v2.size (); i++)        // scan vector elements with their position index
+    Serial.print (v2 [i]);
+Serial.println ();
+for (auto e: v3)                            // scan vector elements an iterator
+    Serial.print (e);
+Serial.println ();        
+```
+
+
+### Sorting vector elements
+
+```C++
+v3.sort ();
+for (auto e: v3)
+    Serial.print (e);
+Serial.println ();
+```
+
+
+### Finding min and max elements of the vector
+
+```C++
+auto minElement = min_element (v2);
+if (minElement)                             // check if min element is found (if v3 is not empty)
+    Serial.printf ("min element of v2 = %i\n", *minElement);
+auto maxElement = max_element (v2);
+if (maxElement)                             // check if max element is found (if v3 is not empty)
+    Serial.printf ("max element of v2 = %i\n", *maxElement);
+```
+
+
+### Detecting errors that occured in vector operations
+
+```C++
+signed char e = v3.push_back (9);
+
+if (e) { // != OK
+    Serial.printf ("push_back error: %i\n", v3.errorFlags ()); // check detail flags
+    // or check specific error
+    if (v3.errorFlags () & BAD_ALLOC) Serial.println ("BAD_ALLOC");       
+    if (v3.errorFlags () & OUT_OF_RANGE) Serial.println ("OUT_OF_RANGE");   
+    if (v3.errorFlags () & NOT_FOUND) Serial.println ("NOT_FOUND");
+    // clear error flags before the next operations
+    v3.clearErrorFlags (); // clear error flags before the next operations
+} else
+    Serial.println ("push_back succeeded");
+```
+
+
+### Checking if an error has occurred only once after many vector operations
+
+```C++
+for (int i = 1000; i < 1100; i++)
+    v1.push_back ( String (i) );
+
+if (v1.errorFlags ()) { // != OK
+    Serial.printf ("an error occured at least once in 100 push_backs: %i\n",  v1.errorFlags ());
+    // or check specific error
+    if (v1.errorFlags () & BAD_ALLOC) Serial.println ("BAD_ALLOC");       
+    if (v1.errorFlags () & OUT_OF_RANGE) Serial.println ("OUT_OF_RANGE");   
+    if (v1.errorFlags () & NOT_FOUND) Serial.println ("NOT_FOUND");
+    // clear error flags before the next operations
+    v1.clearErrorFlags (); // clear error flags before the next operations
+} else
+    Serial.println ("100 push_backs succeeded");
+```
