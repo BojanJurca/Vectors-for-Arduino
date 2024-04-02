@@ -12,7 +12,7 @@ vector.hpp is based on [Tom Stewart's work](https://github.com/tomstewart89/Vect
 
 - min_element and max_element functions are added.
 
-- Error handling added.
+- Error handling is added.
 
 Not all vector member functions are supported (yet), but program interface is more or less compatible with STL C++ vectors to make the use as simple as possible.
 
