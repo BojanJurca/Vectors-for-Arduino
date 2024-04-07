@@ -26,7 +26,7 @@
  *
  * Vector functions are not thread-safe.
  * 
- * Bojan Jurca, March 12, 2024
+ * Bojan Jurca, April 1, 2024
  *  
  */
 
@@ -36,6 +36,8 @@
 
 
     // ----- TUNNING PARAMETERS -----
+
+    // #define __USE_PSRAM_FOR_VECTORS__ // uncomment this line if you want vectors to use PSRAM instead of heap (if PSRAM is available, of course)
 
     // #define __VECTOR_H_EXCEPTIONS__  // uncomment this line if you want vector to throw exceptions
 
@@ -56,7 +58,7 @@
 
         public:
 
-            signed char errorFlags () { return __errorFlags__; }
+            signed char errorFlags () { return __errorFlags__ & 0b01111111; }
             void clearErrorFlags () { __errorFlags__ = 0; }
 
 
@@ -666,11 +668,19 @@
                     return OK;
                 } 
                 // else
-                
-                #ifdef __VECTOR_H_EXCEPTIONS__
-                    vectorType *newElements = new vectorType [newCapacity]; // allocate space for newCapacity elements
+
+                // different ways of memory allocation for the vector
+                #ifdef __USE_PSRAM_FOR_VECTORS__
+                    vectorType *newElements = new (ps_malloc (sizeof (vectorType) * newCapacity)) vectorType [newCapacity];
+                    #ifdef __VECTOR_H_EXCEPTIONS__
+                        throw BAD_ALLOC;
+                    #endif
                 #else
-                    vectorType *newElements = new (std::nothrow) vectorType [newCapacity]; // allocate space for newCapacity elements
+                    #ifdef __VECTOR_H_EXCEPTIONS__
+                        vectorType *newElements = new vectorType [newCapacity]; // allocate space for newCapacity elements
+                    #else
+                        vectorType *newElements = new (std::nothrow) vectorType [newCapacity]; // allocate space for newCapacity elements
+                    #endif
                 #endif
                 
                 if (newElements == NULL) {
@@ -1372,18 +1382,26 @@
                     return OK;
                 } 
                 // else
-                
-                #ifdef __VECTOR_H_EXCEPTIONS__
-                    String *newElements = new String [newCapacity]; // allocate space for newCapacity elements
-                #else
-                    String *newElements = new (std::nothrow) String [newCapacity]; // allocate space for newCapacity elements
-                #endif
+
+                // different ways of memory allocation for the vector
+                // #ifdef __USE_PSRAM_FOR_VECTORS__
+                //     String *newElements = new (ps_malloc (sizeof (String) * newCapacity)) String [newCapacity]; // please note that content part of Strings will stil be allocated in the heap
+                //     #ifdef __VECTOR_H_EXCEPTIONS__
+                //         throw BAD_ALLOC;
+                //     #endif
+                // #else
+                    #ifdef __VECTOR_H_EXCEPTIONS__
+                        String *newElements = new String [newCapacity]; // allocate space for newCapacity elements
+                    #else
+                        String *newElements = new (std::nothrow) String [newCapacity]; // allocate space for newCapacity elements
+                    #endif
+                // #endif
                 
                 if (newElements == NULL) {
                     __errorFlags__ |= BAD_ALLOC;
                     return BAD_ALLOC;
                 }
-                
+             
                 // copy existing elements to the new buffer
                 if (deleteElementAtPosition >= 0) __size__ --;      // one element will be deleted
                 if (leaveFreeSlotAtPosition >= 0) __size__ ++;      // a slot for 1 element will be added

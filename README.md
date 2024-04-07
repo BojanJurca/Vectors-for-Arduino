@@ -78,7 +78,7 @@ v3.pop_front ();                            // please note that pop_front is not
 for (int i = 0; i < v2.size (); i++)        // scan vector elements with their position index
     Serial.print (v2 [i]);
 Serial.println ();
-for (auto e: v3)                            // scan vector elements an iterator
+for (auto e: v3)                            // scan vector elements with an iterator
     Serial.print (e);
 Serial.println ();        
 ```
@@ -111,16 +111,17 @@ if (maxElement)                             // check if max element is found (if
 ```C++
 signed char e = v3.push_back (9);
 
-if (e) { // != OK
-    Serial.printf ("push_back error: %i\n", v3.errorFlags ()); // check detail flags
-    // or check specific error
-    if (v3.errorFlags () & BAD_ALLOC) Serial.println ("BAD_ALLOC");       
-    if (v3.errorFlags () & OUT_OF_RANGE) Serial.println ("OUT_OF_RANGE");   
-    if (v3.errorFlags () & NOT_FOUND) Serial.println ("NOT_FOUND");
-    // clear error flags before the next operations
-    v3.clearErrorFlags (); // clear error flags before the next operations
-} else
+if (!e) // != OK
     Serial.println ("push_back succeeded");
+else {
+    // report error or check flags
+    Serial.printf ("insert error: ");
+    switch (e) {
+        case BAD_ALLOC:       Serial.printf ("BAD_ALLOC\n"); break;
+        case OUT_OF_RANGE:    Serial.printf ("OUT_OF_RANGE\n"); break;
+        case NOT_FOUND:       Serial.printf ("NOT_FOUND\n"); break;
+    }
+}
 ```
 
 
@@ -130,14 +131,14 @@ if (e) { // != OK
 for (int i = 1000; i < 1100; i++)
     v1.push_back ( String (i) );
 
-if (v1.errorFlags ()) { // != OK
-    Serial.printf ("an error occured at least once in 100 push_backs: %i\n",  v1.errorFlags ());
-    // or check specific error
-    if (v1.errorFlags () & BAD_ALLOC) Serial.println ("BAD_ALLOC");       
-    if (v1.errorFlags () & OUT_OF_RANGE) Serial.println ("OUT_OF_RANGE");   
-    if (v1.errorFlags () & NOT_FOUND) Serial.println ("NOT_FOUND");
-    // clear error flags before the next operations
-    v1.clearErrorFlags (); // clear error flags before the next operations
-} else
+e = v1.errorFlags ();
+if (!e) // OK
     Serial.println ("100 push_backs succeeded");
+else {
+    Serial.printf ("an error occured at least once in 100 push_backs: ");  // check flags for details
+    // or check specific error
+    if (e & BAD_ALLOC) Serial.println ("BAD_ALLOC");       
+    if (e & OUT_OF_RANGE) Serial.println ("OUT_OF_RANGE");   
+    if (e & NOT_FOUND) Serial.println ("NOT_FOUND");
+}
 ```
