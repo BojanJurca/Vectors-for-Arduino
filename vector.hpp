@@ -1,45 +1,40 @@
 /*
- * vector.hpp for Arduino (ESP boards)
+ *  vector.hpp for Arduino
  * 
- * This file is part of Vectors-for-Arduino: https://github.com/BojanJurca/Vectors-for-Arduino
+ *  This file is part of Vectors for Arduino: https://github.com/BojanJurca/Vectors-for-Arduino
  * 
- * vector.h is based on Tom Stewart's work: https://github.com/tomstewart89/Vector with some differences:
+ *  vector.hpp is based on Tom Stewart's work: https://github.com/tomstewart89/Vector with the following differences:
  * 
- * - syntax is closer to STL C++ vectors
- * - error handling added
- * - internal storage structure is different and also the logic for handling capacity
- * - supports complex data types such as Strings and other kinds of objects
+ *  - syntax is closer to STL C++ vectors
+ *  - error handling added
+ *  - internal storage structure is different and also the logic for handling capacity
+ *  - Iterator is implemented
+ *  - sorting is added
  * 
- * Vector internal storage is implemented as circular queue. It may have some free slots to let the vector breath a litle without having 
- * to resize it all the time. Normally a vector would require additional chunk of memory when it runs out of free slots. How much memory
- * would it require depends on increment parameter of a constuctor which is normally 1 but can also be some larger number.
+ *  Vector internal storage is implemented as circular queue. It may have some free slots to let the vector breath a litle without having 
+ *  to resize it all the time. Normally a vector would require additional chunk of memory when it runs out of free slots. How much memory
+ *  would it require depends on increment parameter of a constuctor which is normally 1 but can also be some larger number.
  * 
- * Picture of vector intgernal storge:
+ *  Picture of vector intgernal storge:
  * 
- * vectorType __elements__ :   | | |5|4|3|2|1|0|5|6|7|8|9| | | | | | | |
- *                             |    |<--- __size__ ---->|              |
- *                             | __front__           __back__          |
- *                             |<-------------- __capacity__ --------->|  
+ *  vectorType __elements__ :   | | |5|4|3|2|1|0|5|6|7|8|9| | | | | | | |
+ *                              |    |<--- __size__ ---->|              |
+ *                              | __front__           __back__          |
+ *                              |<-------------- __capacity__ --------->|  
  *
- * I tried to make the vector library as generic as possible but haven't succeeded completely. Please see the description of Arduino String template specialization below. 
- * It is possible that other specializations for other types of objects may be necessary as well.
- *
- * Vector functions are not thread-safe.
  * 
- * Bojan Jurca, April 1, 2024
- *  
+ *  Bojan Jurca, April 18, 2024
+ * 
  */
 
 
-#ifndef __VECTOR_H__
-    #define __VECTOR_H__
+#ifndef __VECTOR_HPP__
+    #define __VECTOR_HPP__
 
 
     // ----- TUNNING PARAMETERS -----
 
-    // #define __USE_PSRAM_FOR_VECTORS__ // uncomment this line if you want vectors to use PSRAM instead of heap (if PSRAM is available, of course)
-
-    // #define __VECTOR_H_EXCEPTIONS__  // uncomment this line if you want vector to throw exceptions
+    // #define __THROW_VECTOR_EXCEPTIONS__  // uncomment this line if you want vector to throw exceptions
 
 
     // error flags: there are only two types of error flags that can be set: OVERFLOW and OUT_OF_RANGE - please note that all errors are negative (char) numbers
@@ -71,30 +66,19 @@
             */
             
             vector (int increment = 1) { __increment__ = increment < 1 ? 1 : increment; }
-      
-      
-           /*
-            *  Constructor of vector from brace enclosed initializer list allows the following kinds of creation of vectors: 
-            *  
-            *     vector<int> D = { 200, 300, 400 };
-            *     vector<int> E ( { 500, 600} );
-            */
-      
-            vector (std::initializer_list<vectorType> il) {
-                if (reserve (il.size ())) { // != OK
-                    return;
-                }
 
-                for (auto element: il)
-                    push_back (element);
-            }
-      
-            
+                        
            /*
             * Vector destructor - free the memory occupied by vector elements
             */
             
-            ~vector () { if (__elements__ != NULL) delete [] __elements__; }
+            ~vector () { 
+                if (__elements__ != NULL) {
+                    for (int i = 0; i < __capacity__; i++)
+                        __elements__ [i].~vectorType ();
+                    free (__elements__);
+                }
+            }
 
 
            /*
@@ -122,7 +106,7 @@
         
             signed char reserve (int newCapacity) {
                 if (newCapacity < __size__) {
-                    #ifdef __VECTOR_H_EXCEPTIONS__
+                    #ifdef __THROW_VECTOR_EXCEPTIONS__
                         throw BAD_ALLOC;
                     #endif
                     __errorFlags__ |= BAD_ALLOC;   
@@ -171,7 +155,7 @@
       
             vectorType &operator [] (int position) {
                 if (position < 0 || position >= __size__) {
-                    #ifdef __VECTOR_H_EXCEPTIONS__
+                    #ifdef __THROW_VECTOR_EXCEPTIONS__
                         throw OUT_OF_RANGE;
                     #endif                      
                     __errorFlags__ |= OUT_OF_RANGE;                    
@@ -179,14 +163,14 @@
                 return __elements__ [(__front__ + position) % __capacity__];
             }
 
-    
+
            /*
             *  Same as [] operator, so it is not really needed but added here because it is supported in STL C++ vectors
             */      
 
             vectorType &at (int position) {
                 if (position < 0 || position >= __size__) {
-                    #ifdef __VECTOR_H_EXCEPTIONS__
+                    #ifdef __THROW_VECTOR_EXCEPTIONS__
                         throw OUT_OF_RANGE;
                     #endif                      
                     __errorFlags__ |= OUT_OF_RANGE;                    
@@ -208,7 +192,7 @@
             vector (vector& other) {
                 signed char e = this->reserve (other.size ());
                 if (e) { // != OK
-                    #ifdef __VECTOR_H_EXCEPTIONS__
+                    #ifdef __THROW_VECTOR_EXCEPTIONS__
                         throw e;
                     #endif                      
                     return; // prevent resizing __elements__ for each element beeing pushed back
@@ -233,7 +217,7 @@
                 this->clear (); // clear existing elements if needed
                 signed char e = this->reserve (other.size ());
                 if (e) { // != OK
-                    #ifdef __VECTOR_H_EXCEPTIONS__
+                    #ifdef __THROW_VECTOR_EXCEPTIONS__
                         throw e;
                     #endif                      
                     return this; // prevent resizing __elements__ for each element beeing pushed back
@@ -277,7 +261,7 @@
                 if (__size__ == __capacity__) {
                     signed char e = __changeCapacity__ (__capacity__ + __increment__);
                     if (e) { // != OK
-                        #ifdef __VECTOR_H_EXCEPTIONS__
+                        #ifdef __THROW_VECTOR_EXCEPTIONS__
                             throw e;
                         #endif                                                                    
                         return e;
@@ -299,7 +283,7 @@
                 if (__size__ == __capacity__) {
                     signed char e = __changeCapacity__ (__capacity__ + __increment__);
                     if (e) { // != OK
-                        #ifdef __VECTOR_H_EXCEPTIONS__
+                        #ifdef __THROW_VECTOR_EXCEPTIONS__
                             throw e;
                         #endif                      
                         return e;
@@ -325,7 +309,7 @@
       
             signed char pop_back () {
                 if (__size__ == 0) {
-                    #ifdef __VECTOR_H_EXCEPTIONS__
+                    #ifdef __THROW_VECTOR_EXCEPTIONS__
                         if (__size__ == 0) throw OUT_OF_RANGE;
                     #endif          
                     __errorFlags__ |= OUT_OF_RANGE;                    
@@ -347,7 +331,7 @@
         
             signed char pop_front () {
                 if (__size__ == 0) {
-                    #ifdef __VECTOR_H_EXCEPTIONS__
+                    #ifdef __THROW_VECTOR_EXCEPTIONS__
                         if (__size__ == 0) throw OUT_OF_RANGE;
                     #endif          
                     __errorFlags__ |= OUT_OF_RANGE;                                      
@@ -395,7 +379,7 @@
             signed char erase (int position) {
                 // is position a valid index?
                 if (position < 0 || position >= __size__) {
-                    #ifdef __VECTOR_H_EXCEPTIONS__
+                    #ifdef __THROW_VECTOR_EXCEPTIONS__
                         throw OUT_OF_RANGE;
                     #endif                              
                     __errorFlags__ |= OUT_OF_RANGE;                    
@@ -412,7 +396,7 @@
                         return OK;
                     // else (if failed to change capacity) proceeed
       
-                // we have to reposition the elements, weather from the __front__ or from the calculate back, whichever is faster
+                // we have to reposition the elements, weather from the __front__ or from the calculated back, whichever is faster
                 if (position < __size__ - position) {
                     // move all elements form position to 1
                     int e1 = (__front__ + position) % __capacity__;
@@ -447,7 +431,7 @@
             signed char insert (int position, vectorType element) {
                 // is position a valid index?
                 if (position < 0 || position > __size__) { // allow size () so the insertion in an empty vector is possible
-                    #ifdef __VECTOR_H_EXCEPTIONS__
+                    #ifdef __THROW_VECTOR_EXCEPTIONS__
                         throw OUT_OF_RANGE;
                     #endif                           
                     __errorFlags__ |= OUT_OF_RANGE;                       
@@ -503,7 +487,7 @@
             *
             *  For heap sort algorithm description please see: https://www.geeksforgeeks.org/heap-sort/ and https://builtin.com/data-science/heap-sort
             *  
-            *  It works for almost of the data types as long as operator < is provided.
+            *  It works for almost all of the data types as long as operator < is provided.
             */
 
             void sort () { 
@@ -601,7 +585,7 @@
                     vector* __vector__;
                     int __position__;
                     
-            };      
+            };  
       
             Iterator begin () { return Iterator (this, 0); }  
             Iterator end () { return Iterator (this, this->size () - 1); }
@@ -658,7 +642,11 @@
                 if (newCapacity < __reservation__) newCapacity = __reservation__;
                 if (newCapacity == 0) {
                     // delete old buffer
-                    if (__elements__ != NULL) delete [] __elements__;
+                    if (__elements__ != NULL) {
+                        for (int i = 0; i < __capacity__; i++)
+                            __elements__ [i].~vectorType ();
+                        free (__elements__);
+                    }
                     
                     // update internal variables
                     __capacity__ = 0;
@@ -669,25 +657,19 @@
                 } 
                 // else
 
-                // different ways of memory allocation for the vector
-                #ifdef __USE_PSRAM_FOR_VECTORS__
-                    vectorType *newElements = new (ps_malloc (sizeof (vectorType) * newCapacity)) vectorType [newCapacity];
-                    #ifdef __VECTOR_H_EXCEPTIONS__
+                // allocate new memory for the vector
+                vectorType *newElements = (vectorType *) malloc (sizeof (vectorType) * newCapacity);
+                if (newElements == NULL) {
+                    #ifdef __THROW_VECTOR_EXCEPTIONS__
                         throw BAD_ALLOC;
                     #endif
-                #else
-                    #ifdef __VECTOR_H_EXCEPTIONS__
-                        vectorType *newElements = new vectorType [newCapacity]; // allocate space for newCapacity elements
-                    #else
-                        vectorType *newElements = new (std::nothrow) vectorType [newCapacity]; // allocate space for newCapacity elements
-                    #endif
-                #endif
-                
-                if (newElements == NULL) {
                     __errorFlags__ |= BAD_ALLOC;
                     return BAD_ALLOC;
                 }
-                
+
+                new (newElements) vectorType [newCapacity]; 
+                // this is not supported by older boards, we can skip this step but won't be able to use objects as vector elements then
+
                 // copy existing elements to the new buffer
                 if (deleteElementAtPosition >= 0) __size__ --;      // one element will be deleted
                 if (leaveFreeSlotAtPosition >= 0) __size__ ++;      // a slot for 1 element will be added
@@ -704,9 +686,13 @@
                     newElements [i] = __elements__ [e];
                     e = (e + 1) % __capacity__;
                 }
-                
+
                 // delete the old elements' buffer
-                if (__elements__ != NULL) delete [] __elements__;
+                if (__elements__ != NULL) {
+                    for (int i = 0; i < __capacity__; i++)
+                        __elements__ [i].~vectorType ();
+                    free (__elements__);
+                }
                 
                 // update internal variables
                 __capacity__ = newCapacity;
@@ -752,7 +738,7 @@
 
         public:
 
-            signed char errorFlags () { return __errorFlags__; }
+            signed char errorFlags () { return __errorFlags__ & 0b01111111; }
             void clearErrorFlags () { __errorFlags__ = 0; }
 
 
@@ -765,30 +751,19 @@
             */
             
             vector (int increment = 1) { __increment__ = increment < 1 ? 1 : increment; }
-      
-      
-           /*
-            *  Constructor of vector from brace enclosed initializer list allows the following kinds of creation of vectors: 
-            *  
-            *     vector<int> D = { "200", "300", "400" };
-            *     vector<int> E ( { "500", "600" } );
-            */
-      
-            vector (std::initializer_list<String> il) {
-                if (reserve (il.size ())) { // != OK
-                    return;
-                }
 
-                for (auto element: il)
-                    push_back (element);
-            }
-      
-            
+
            /*
             * Vector destructor - free the memory occupied by vector elements
             */
-            
-            ~vector () { if (__elements__ != NULL) delete [] __elements__; }
+
+            ~vector () {
+                if (__elements__ != NULL) {
+                    for (int i = 0; i < __capacity__; i++)
+                        __elements__ [i].~String ();
+                    free (__elements__);
+                }
+            }
 
 
            /*
@@ -816,7 +791,7 @@
         
             signed char reserve (int newCapacity) {
                 if (newCapacity < __size__) {
-                    #ifdef __VECTOR_H_EXCEPTIONS__
+                    #ifdef __THROW_VECTOR_EXCEPTIONS__
                         throw BAD_ALLOC;
                     #endif
                     __errorFlags__ |= BAD_ALLOC;   
@@ -865,7 +840,7 @@
       
             String &operator [] (int position) {
                 if (position < 0 || position >= __size__) {
-                    #ifdef __VECTOR_H_EXCEPTIONS__
+                    #ifdef __THROW_VECTOR_EXCEPTIONS__
                         throw OUT_OF_RANGE;
                     #endif 
                     __errorFlags__ |= OUT_OF_RANGE;                                         
@@ -880,7 +855,7 @@
 
             String &at (int position) {
                 if (position < 0 || position >= __size__) {
-                    #ifdef __VECTOR_H_EXCEPTIONS__
+                    #ifdef __THROW_VECTOR_EXCEPTIONS__
                         throw OUT_OF_RANGE;
                     #endif    
                     __errorFlags__ |= OUT_OF_RANGE;                                      
@@ -894,7 +869,7 @@
             *  
             *     vector<int> F = E;
             *     
-            *  Without properly handling it, = operator would probably just copy one instance over another which would result in crash when instances will be distroyed.
+            *  Without properly handling it, = operator would probably just copy one instance over another which would result in crash when instances will be destroyed.
             *  
             *  Calling program should check errorFlags () after constructor is beeing called for possible errors
             */
@@ -902,7 +877,7 @@
             vector (vector& other) {
                 signed char e = this->reserve (other.size ());
                 if (e) { // != OK
-                    #ifdef __VECTOR_H_EXCEPTIONS__
+                    #ifdef __THROW_VECTOR_EXCEPTIONS__
                         throw e;
                     #endif                      
                     return; // prevent resizing __elements__ for each element beeing pushed back
@@ -920,14 +895,14 @@
             *     vector<String> F;
             *     F = { "1", "2", "3" }; or F = {};
             *     
-            *  Without properly handling it, = operator would probably just copy one instance over another which would result in crash when instances will be distroyed.
+            *  Without properly handling it, = operator would probably just copy one instance over another which would result in crash when instances will be destroyed.
             */
       
             vector* operator = (vector other) {
                 this->clear (); // clear existing elements if needed
                 signed char e = this->reserve (other.size ());
                 if (e) { // != OK
-                    #ifdef __VECTOR_H_EXCEPTIONS__
+                    #ifdef __THROW_VECTOR_EXCEPTIONS__
                         throw e;
                     #endif                      
                     return this; // prevent resizing __elements__ for each element beeing pushed back
@@ -976,7 +951,7 @@
                 if (__size__ == __capacity__) {
                     signed char e = __changeCapacity__ (__capacity__ + __increment__);
                     if (e) { // != OK
-                        #ifdef __VECTOR_H_EXCEPTIONS__
+                        #ifdef __THROW_VECTOR_EXCEPTIONS__
                             throw e;
                         #endif                                                                    
                         return e;
@@ -984,7 +959,7 @@
                 }          
         
                 // add the new element at the end = (__front__ + __size__) % __capacity__, at this point we can be sure that there is enough __capacity__ of __elements__
-                __elements__ [(__front__ + __size__) % __capacity__] = element;
+                __swapStrings__ (&__elements__ [(__front__ + __size__) % __capacity__], &element);
                 __size__ ++;
                 return OK;
             }
@@ -1003,7 +978,7 @@
                 if (__size__ == __capacity__) {
                     signed char e = __changeCapacity__ (__capacity__ + __increment__);
                     if (e) { // != OK
-                        #ifdef __VECTOR_H_EXCEPTIONS__
+                        #ifdef __THROW_VECTOR_EXCEPTIONS__
                             throw e;
                         #endif                      
                         return e;
@@ -1012,7 +987,7 @@
         
                 // add the new element at the beginning, at this point we can be sure that there is enough __capacity__ of __elements__
                 __front__ = (__front__ + __capacity__ - 1) % __capacity__; // __front__ - 1
-                __elements__ [__front__] = element;
+                __swapStrings__ (&__elements__ [__front__], &element);
                 __size__ ++;
                 return OK;
             }
@@ -1029,7 +1004,7 @@
       
             signed char pop_back () {
                 if (__size__ == 0) {
-                    #ifdef __VECTOR_H_EXCEPTIONS__
+                    #ifdef __THROW_VECTOR_EXCEPTIONS__
                         if (__size__ == 0) throw OUT_OF_RANGE;
                     #endif          
                     __errorFlags__ |= OUT_OF_RANGE;                    
@@ -1051,7 +1026,7 @@
         
             signed char pop_front () {
                 if (__size__ == 0) {
-                    #ifdef __VECTOR_H_EXCEPTIONS__
+                    #ifdef __THROW_VECTOR_EXCEPTIONS__
                         if (__size__ == 0) throw OUT_OF_RANGE;
                     #endif        
                     __errorFlags__ |= OUT_OF_RANGE;                                        
@@ -1104,7 +1079,7 @@
             signed char erase (int position) {
                 // is position a valid index?
                 if (position < 0 || position >= __size__) {
-                    #ifdef __VECTOR_H_EXCEPTIONS__
+                    #ifdef __THROW_VECTOR_EXCEPTIONS__
                         throw OUT_OF_RANGE;
                     #endif  
                     __errorFlags__ |= OUT_OF_RANGE;                                                
@@ -1121,7 +1096,7 @@
                         return OK;
                     // else (if failed to change capacity) proceeed
       
-                // we have to reposition the elements, weather from the __front__ or from the calculate back, whichever is faster
+                // we have to reposition the elements, weather from the __front__ or from the calculated back, whichever is faster
                 if (position < __size__ - position) {
                     // move all elements form position to 1
                     int e1 = (__front__ + position) % __capacity__;
@@ -1161,7 +1136,7 @@
 
                 // is position a valid index?
                 if (position < 0 || position > __size__) { // allow size () so the insertion in an empty vector is possible
-                    #ifdef __VECTOR_H_EXCEPTIONS__
+                    #ifdef __THROW_VECTOR_EXCEPTIONS__
                         throw OUT_OF_RANGE;
                     #endif   
                     __errorFlags__ |= OUT_OF_RANGE;                                               
@@ -1169,15 +1144,15 @@
                 }
       
                 // try 2 faster options first
-                if (position >= __size__)               return push_back (element);
-                if (position == 0)                      return push_front (element);
+                if (position >= __size__)                                  return push_back (element);
+                if (position == 0)                                         return push_front (element);
 
                 // do we have to resize the space occupied by existing the elements? This is the slowest option
                 if (__capacity__ < __size__ + 1) {
                     signed char e = __changeCapacity__ (__size__ + __increment__, -1, position);
-                    if (e)                              return e;
+                    if (e)                                                 return e;
                     // else
-                    __elements__ [position] = element;  return OK; 
+                    __swapStrings__ (&__elements__ [position], &element);  return OK; 
                 }
       
                 // we have to reposition the elements, weather from the __front__ or from the calculated back, whichever is faster
@@ -1189,11 +1164,11 @@
                     int e1 = __front__;
                     for (int i = 0; i < position; i++) {
                         int e2 = (e1 + 1) % __capacity__; // e2 = e1 + 1
-                        __elements__ [e1] = __elements__ [e2];
+                        __swapStrings__ (&__elements__ [e1], &__elements__ [e2]);
                         e1 = e2;
                     }
                     // insert the new element now
-                    __elements__ [e1] = element;
+                    __swapStrings__ (&__elements__ [e1], &element);
                     return OK;
                 } else {
                     // move elements from __size__ - 1 to position 1 position up
@@ -1202,11 +1177,11 @@
                     int e1 = back;
                     for (int i = __size__ - 1; i > position; i--) {
                         int e2 = (e1 + __capacity__ - 1) % __capacity__; // e2 = e1 - 1
-                        __elements__ [e1] = __elements__ [e2];
+                        __swapStrings__ (&__elements__ [e1], &__elements__ [e2]);
                         e1 = e2;
                     }
                     // insert the new element now
-                    __elements__ [e1] = element;        
+                    __swapStrings__ (&__elements__ [e1], &element);        
                     return OK;
                 }
             }
@@ -1217,7 +1192,7 @@
             *
             *  For heap sort algorithm description please see: https://www.geeksforgeeks.org/heap-sort/ and https://builtin.com/data-science/heap-sort
             *  
-            *  It works for almost of the data types as long as operator < is provided.
+            *  It works for almost all of the data types as long as operator < is provided.
             */
 
             void sort () { 
@@ -1237,7 +1212,7 @@
                         
                         if (largest != j) {     // if largest is not root
                             // swap arr [j] and arr [largest]
-                            String tmp = at (j); at (j) = at (largest); at (largest) = tmp;
+                            __swapStrings__ (&at (j), & at (largest));
                             // heapify the affected subtree in the next iteration
                             j = largest;
                         } else {
@@ -1251,7 +1226,7 @@
                 for (int i = __size__ - 1; i > 0; i --) {
             
                     // move current root to end
-                    String tmp = at (0); at (0) = at (i); at (i) = tmp;
+                    __swapStrings__ (&at (0), &at (i));
 
                     // heapify the reduced heap 0 .. i
                     int j = 0;
@@ -1265,7 +1240,7 @@
                         
                         if (largest != j) {     // if largest is not root
                             // swap arr [j] and arr [largest]
-                            String tmp = at (j); at (j) = at (largest); at (largest) = tmp;
+                            __swapStrings__ (&at (j), &at (largest));
                             // heapify the affected subtree in the next iteration
                             j = largest;
                         } else {
@@ -1353,7 +1328,7 @@
 
       private:
 
-            String *__elements__ = NULL;  // initially the vector has no elements, __elements__ buffer is empty
+            String *__elements__ = NULL;      // initially the vector has no elements, __elements__ buffer is empty
             int __capacity__ = 0;             // initial number of elements (or not occupied slots) in __elements__
             int __increment__ = 1;            // by default, increment elements buffer for one element when needed
             int __reservation__ = 0;          // no memory reservatio by default
@@ -1372,8 +1347,12 @@
                 if (newCapacity < __reservation__) newCapacity = __reservation__;
                 if (newCapacity == 0) {
                     // delete old buffer
-                    if (__elements__ != NULL) delete [] __elements__;
-                    
+                    if (__elements__ != NULL) {
+                        for (int i = 0; i < __capacity__; i++)
+                            __elements__ [i].~String ();
+                        free (__elements__);
+                    }
+
                     // update internal variables
                     __capacity__ = 0;
                     __elements__ = NULL;
@@ -1381,27 +1360,22 @@
                     __front__ = 0;
                     return OK;
                 } 
-                // else
 
-                // different ways of memory allocation for the vector
-                // #ifdef __USE_PSRAM_FOR_VECTORS__
-                //     String *newElements = new (ps_malloc (sizeof (String) * newCapacity)) String [newCapacity]; // please note that content part of Strings will stil be allocated in the heap
-                //     #ifdef __VECTOR_H_EXCEPTIONS__
-                //         throw BAD_ALLOC;
-                //     #endif
-                // #else
-                    #ifdef __VECTOR_H_EXCEPTIONS__
-                        String *newElements = new String [newCapacity]; // allocate space for newCapacity elements
-                    #else
-                        String *newElements = new (std::nothrow) String [newCapacity]; // allocate space for newCapacity elements
-                    #endif
-                // #endif
-                
+                // allocate new memory for the vector
+                String *newElements = (String *) malloc (sizeof (String) * newCapacity);
                 if (newElements == NULL) {
+                    #ifdef __THROW_VECTOR_EXCEPTIONS__
+                        throw BAD_ALLOC;
+                    #endif
                     __errorFlags__ |= BAD_ALLOC;
                     return BAD_ALLOC;
                 }
-             
+
+                new (newElements) String [newCapacity];
+                // if this is not supported by older boards, we can use the following instead:
+                //  memset (newElements, 0, sizeof (String) * newCapacity); // prevent caling String destructors at the following assignments
+                //  for (int i = 0; i < newCapacity; i++) newElements [i] = String (); // assign empty String
+
                 // copy existing elements to the new buffer
                 if (deleteElementAtPosition >= 0) __size__ --;      // one element will be deleted
                 if (leaveFreeSlotAtPosition >= 0) __size__ ++;      // a slot for 1 element will be added
@@ -1415,18 +1389,19 @@
                     // do we have to leave a free slot for a new element at i-th place? Continue with the next index ...
                     if (i == leaveFreeSlotAtPosition) continue;
                     
-                    // String template specialization {
-                        // newElements [i] = __elements__ [e];
-                        // we don't need to care of an error occured while creating a newElement String, we'll replace it with a valid __elements__ string anyway
-                        __swapStrings__ (&newElements [i], &__elements__ [e]);
-                    // } String template specialization
+                    // we don't need to care of an error occured while creating a newElement String, we'll replace it with a valid __elements__ string anyway
+                    __swapStrings__ (&newElements [i], &__elements__ [e]);
 
                     e = (e + 1) % __capacity__;
                 }
                 
-                // delete the old elements' buffer
-                if (__elements__ != NULL) delete [] __elements__;
-                
+                // delete the old elements' buffer   
+                if (__elements__ != NULL) {
+                    for (int i = 0; i < __capacity__; i++)
+                        __elements__ [i].~String ();
+                    free (__elements__);
+                }
+
                 // update internal variables
                 __capacity__ = newCapacity;
                 __elements__ = newElements;
