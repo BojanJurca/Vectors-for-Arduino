@@ -19,18 +19,8 @@ void setup () {
 
     // Examples of vector constructors
     vector<String> v1;                          // empty vector of Strings
-   // vector<int> v2 ( { 100, 200, 300, 400 } );  // constructor of vector of integers from brace enclosed initializer list
-   vector<int> v2;
-    v2.push_back (100);
-    v2.push_back (200);
-    v2.push_back (300);
-    v2.push_back (400);
-  //  vector<int> v3 = { 500, 600, 700, 800 };    // constructor of vector of integers and its initialization from brace enclosed initializer list
-    vector<int> v3;
-    v3.push_back (500);
-    v3.push_back (600);
-    v3.push_back (700);
-    v3.push_back (800);
+    vector<int> v2 ( { 100, 200, 300, 400 } );  // constructor of vector of integers from brace enclosed initializer list
+    vector<int> v3 = { 500, 600, 700, 800 };    // constructor of vector of integers and its initialization from brace enclosed initializer list
     vector<int> v4 = v3;                        // copy-constructor
 
 

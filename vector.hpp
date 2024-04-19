@@ -67,7 +67,23 @@
             
             vector (int increment = 1) { __increment__ = increment < 1 ? 1 : increment; }
 
-                        
+           /*
+            *  Constructor of vector from brace enclosed initializer list allows the following kinds of creation of vectors: 
+            *  
+            *     vector<int> D = { 200, 300, 400 };
+            *     vector<int> E ( { 500, 600 } );
+            */
+    
+            vector (std::initializer_list<vectorType> il) {
+                if (reserve (il.size ())) { // != OK
+                    return;
+                }
+
+                for (auto element: il)
+                    push_back (element);
+            }
+    
+                  
            /*
             * Vector destructor - free the memory occupied by vector elements
             */
@@ -754,9 +770,26 @@
 
 
            /*
+            *  Constructor of vector from brace enclosed initializer list allows the following kinds of creation of vectors: 
+            *  
+            *     vector<String> D = { "200", "300", "400" };
+            *     vector<String> E ( { "500", "600" } );
+            */
+    
+            vector (std::initializer_list<String> il) {
+                if (reserve (il.size ())) { // != OK
+                    return;
+                }
+
+                for (auto element: il)
+                    push_back (element);
+            }
+
+
+           /*
             * Vector destructor - free the memory occupied by vector elements
             */
-
+            
             ~vector () {
                 if (__elements__ != NULL) {
                     for (int i = 0; i < __capacity__; i++)
