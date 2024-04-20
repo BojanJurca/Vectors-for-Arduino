@@ -2,7 +2,12 @@
 
 
 void setup () {
-    Serial.begin (115200);
+    #ifdef ARDUINO_ARCH_AVR // Assuming Arduino Mega or Uno
+        Serial.begin (9600);
+    #else
+        Serial.begin (115200);
+    #endif
+
     while (!Serial) 
         delay (10);
     delay (1000);
@@ -18,10 +23,23 @@ void setup () {
         Serial.println (e);    
 
     // Examples of vector constructors
-    vector<String> v1;                          // empty vector of Strings
-    vector<int> v2 ( { 100, 200, 300, 400 } );  // constructor of vector of integers from brace enclosed initializer list
-    vector<int> v3 = { 500, 600, 700, 800 };    // constructor of vector of integers and its initialization from brace enclosed initializer list
-    vector<int> v4 = v3;                        // copy-constructor
+    vector<String> v1;                              // empty vector of Strings
+    #ifndef ARDUINO_ARCH_AVR // Assuming Arduino Mega or Uno
+        vector<int> v2 ( { 100, 200, 300, 400 } );  // constructor of vector of integers from brace enclosed initializer list
+        vector<int> v3 = { 500, 600, 700, 800 };    // constructor of vector of integers and its initialization from brace enclosed initializer list
+    #else
+        vector<int> v2;
+            v2.push_back (100);
+            v2.push_back (200);
+            v2.push_back (300);
+            v2.push_back (400);
+        vector<int> v3;
+            v3.push_back (500);
+            v3.push_back (600);
+            v3.push_back (700);
+            v3.push_back (800);
+    #endif
+    vector<int> v4 = v3;                            // copy-constructor
 
 
     // Examples of vector assignment
@@ -137,11 +155,17 @@ void setup () {
                 Serial.println ("Average push_back time (without prior reservation of memory) = " + String ((float) (endMillis - startMillis) * 1000 / (float) l) + " us");
 
 
-    // Try something more complicated for the end
-    vector<vector<float>> matrix;
-    vector<float> line;
-    line.push_back (1.0);
-    matrix.push_back (line);
+    #ifndef ARDUINO_ARCH_AVR // Assuming Arduino Mega or Uno
+        // Try something more complicated for the end
+        vector<vector<float>> matrix;
+        vector<float> line;
+        line.push_back (1.0);
+        matrix.push_back (line);
+
+        for (int i = 0; i < matrix.size (); i++)
+            for (int j = 0; j < matrix [i].size (); j++)
+                Serial.println (matrix [i][j]);
+    #endif
 }
 
 void loop () {

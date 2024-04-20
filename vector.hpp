@@ -34,6 +34,8 @@
 
     // ----- TUNNING PARAMETERS -----
 
+    // #define __USE_PSRAM_FOR_VECTORS__ // uncomment this line if you want vectors to use PSRAM instead of heap (if PSRAM is available, of course)    
+
     // #define __THROW_VECTOR_EXCEPTIONS__  // uncomment this line if you want vector to throw exceptions
 
 
@@ -67,22 +69,24 @@
             
             vector (int increment = 1) { __increment__ = increment < 1 ? 1 : increment; }
 
-           /*
-            *  Constructor of vector from brace enclosed initializer list allows the following kinds of creation of vectors: 
-            *  
-            *     vector<int> D = { 200, 300, 400 };
-            *     vector<int> E ( { 500, 600 } );
-            */
-    
-            vector (std::initializer_list<vectorType> il) {
-                if (reserve (il.size ())) { // != OK
-                    return;
-                }
+            #ifndef ARDUINO_ARCH_AVR // Assuming Arduino Mega or Uno
+                /*
+                    *  Constructor of vector from brace enclosed initializer list allows the following kinds of creation of vectors: 
+                    *  
+                    *     vector<int> D = { 200, 300, 400 };
+                    *     vector<int> E ( { 500, 600 } );
+                    */
+            
+                    vector (std::initializer_list<vectorType> il) {
+                        if (reserve (il.size ())) { // != OK
+                            return;
+                        }
 
-                for (auto element: il)
-                    push_back (element);
-            }
-    
+                        for (auto element: il)
+                            push_back (element);
+                    }
+            #endif
+      
                   
            /*
             * Vector destructor - free the memory occupied by vector elements
@@ -90,8 +94,10 @@
             
             ~vector () { 
                 if (__elements__ != NULL) {
-                    for (int i = 0; i < __capacity__; i++)
-                        __elements__ [i].~vectorType ();
+                    #ifndef ARDUINO_ARCH_AVR // Assuming Arduino Mega or Uno
+                        for (int i = 0; i < __capacity__; i++)
+                            __elements__ [i].~vectorType ();
+                    #endif
                     free (__elements__);
                 }
             }
@@ -659,8 +665,10 @@
                 if (newCapacity == 0) {
                     // delete old buffer
                     if (__elements__ != NULL) {
-                        for (int i = 0; i < __capacity__; i++)
-                            __elements__ [i].~vectorType ();
+                        #ifndef ARDUINO_ARCH_AVR // Assuming Arduino Mega or Uno
+                            for (int i = 0; i < __capacity__; i++)
+                                __elements__ [i].~vectorType ();
+                        #endif
                         free (__elements__);
                     }
                     
@@ -674,7 +682,11 @@
                 // else
 
                 // allocate new memory for the vector
-                vectorType *newElements = (vectorType *) malloc (sizeof (vectorType) * newCapacity);
+                #ifdef __USE_PSRAM_FOR_VECTORS__
+                    vectorType *newElements = (vectorType *) ps_malloc (sizeof (vectorType) * newCapacity);
+                #else // use heap
+                    vectorType *newElements = (vectorType *) malloc (sizeof (vectorType) * newCapacity);
+                #endif
                 if (newElements == NULL) {
                     #ifdef __THROW_VECTOR_EXCEPTIONS__
                         throw BAD_ALLOC;
@@ -683,8 +695,11 @@
                     return BAD_ALLOC;
                 }
 
-                new (newElements) vectorType [newCapacity]; 
-                // this is not supported by older boards, we can skip this step but won't be able to use objects as vector elements then
+                #ifndef ARDUINO_ARCH_AVR // Assuming Arduino Mega or Uno
+                    new (newElements) vectorType [newCapacity]; 
+                #else                 
+                    // we can skip this step but won't be able to use objects as vector elements then
+                #endif
 
                 // copy existing elements to the new buffer
                 if (deleteElementAtPosition >= 0) __size__ --;      // one element will be deleted
@@ -705,8 +720,10 @@
 
                 // delete the old elements' buffer
                 if (__elements__ != NULL) {
-                    for (int i = 0; i < __capacity__; i++)
-                        __elements__ [i].~vectorType ();
+                    #ifndef ARDUINO_ARCH_AVR // Assuming Arduino Mega or Uno
+                        for (int i = 0; i < __capacity__; i++)
+                            __elements__ [i].~vectorType ();
+                    #endif
                     free (__elements__);
                 }
                 
@@ -769,21 +786,23 @@
             vector (int increment = 1) { __increment__ = increment < 1 ? 1 : increment; }
 
 
-           /*
-            *  Constructor of vector from brace enclosed initializer list allows the following kinds of creation of vectors: 
-            *  
-            *     vector<String> D = { "200", "300", "400" };
-            *     vector<String> E ( { "500", "600" } );
-            */
-    
-            vector (std::initializer_list<String> il) {
-                if (reserve (il.size ())) { // != OK
-                    return;
-                }
+            #ifndef ARDUINO_ARCH_AVR // Assuming Arduino Mega or Uno
+                /*
+                    *  Constructor of vector from brace enclosed initializer list allows the following kinds of creation of vectors: 
+                    *  
+                    *     vector<String> D = { "200", "300", "400" };
+                    *     vector<String> E ( { "500", "600" } );
+                    */
+            
+                    vector (std::initializer_list<String> il) {
+                        if (reserve (il.size ())) { // != OK
+                            return;
+                        }
 
-                for (auto element: il)
-                    push_back (element);
-            }
+                        for (auto element: il)
+                            push_back (element);
+                    }
+            #endif
 
 
            /*
@@ -1395,7 +1414,11 @@
                 } 
 
                 // allocate new memory for the vector
-                String *newElements = (String *) malloc (sizeof (String) * newCapacity);
+                #ifdef __USE_PSRAM_FOR_VECTORS__
+                    String *newElements = (String *) ps_malloc (sizeof (String) * newCapacity);
+                #else // use heap
+                    String *newElements = (String *) malloc (sizeof (String) * newCapacity);
+                #endif
                 if (newElements == NULL) {
                     #ifdef __THROW_VECTOR_EXCEPTIONS__
                         throw BAD_ALLOC;
@@ -1404,10 +1427,13 @@
                     return BAD_ALLOC;
                 }
 
-                new (newElements) String [newCapacity];
-                // if this is not supported by older boards, we can use the following instead:
-                //  memset (newElements, 0, sizeof (String) * newCapacity); // prevent caling String destructors at the following assignments
-                //  for (int i = 0; i < newCapacity; i++) newElements [i] = String (); // assign empty String
+                #ifndef ARDUINO_ARCH_AVR // Assuming Arduino Mega or Uno
+                    new (newElements) String [newCapacity];
+                #else
+                    // if this is not supported by older boards, we can use the following instead:
+                    memset (newElements, 0, sizeof (String) * newCapacity); // prevent caling String destructors at the following assignments
+                    for (int i = 0; i < newCapacity; i++) newElements [i] = String (); // assign empty String
+                #endif
 
                 // copy existing elements to the new buffer
                 if (deleteElementAtPosition >= 0) __size__ --;      // one element will be deleted
