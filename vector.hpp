@@ -34,8 +34,6 @@
 
     // ----- TUNNING PARAMETERS -----
 
-    // #define __USE_PSRAM_FOR_VECTORS__ // uncomment this line if you want vectors to use PSRAM instead of heap (if PSRAM is available, of course)    
-
     // #define __THROW_VECTOR_EXCEPTIONS__  // uncomment this line if you want vector to throw exceptions
 
 
@@ -44,6 +42,14 @@
     #define BAD_ALLOC    ((signed char) 0b10000001) // -127 - out of memory
     #define OUT_OF_RANGE ((signed char) 0b10000010) // -126 - invalid index
     #define NOT_FOUND    ((signed char) 0b10000100) // -124 - key is not found        
+
+
+    // type of memory used
+    #define HEAP_MEM 2
+    #define PSRAM_MEM 3
+    #ifndef VECTOR_MEMORY_TYPE 
+        #define VECTOR_MEMORY_TYPE HEAP_MEM // use heap by default
+    #endif
 
 
     template <class vectorType> class vector {
@@ -682,7 +688,7 @@
                 // else
 
                 // allocate new memory for the vector
-                #ifdef __USE_PSRAM_FOR_VECTORS__
+                #if VECTOR_MEMORY_TYPE == PSRAM_MEM
                     vectorType *newElements = (vectorType *) ps_malloc (sizeof (vectorType) * newCapacity);
                 #else // use heap
                     vectorType *newElements = (vectorType *) malloc (sizeof (vectorType) * newCapacity);
@@ -1414,7 +1420,7 @@
                 } 
 
                 // allocate new memory for the vector
-                #ifdef __USE_PSRAM_FOR_VECTORS__
+                #if VECTOR_MEMORY_TYPE == PSRAM_MEM
                     String *newElements = (String *) ps_malloc (sizeof (String) * newCapacity);
                 #else // use heap
                     String *newElements = (String *) malloc (sizeof (String) * newCapacity);

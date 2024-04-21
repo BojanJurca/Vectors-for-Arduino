@@ -14,6 +14,7 @@ void setup () {
 
 
     // Quick test
+    Serial.println ("--- Quick test ---");
     vector<char> v;
     v.push_back ('a');
     v.push_back ('b');
@@ -23,6 +24,7 @@ void setup () {
         Serial.println (e);    
 
     // Examples of vector constructors
+    Serial.println ("--- vector constructors ---");
     vector<String> v1;                              // empty vector of Strings
     #ifndef ARDUINO_ARCH_AVR // Assuming Arduino Mega or Uno
         vector<int> v2 ( { 100, 200, 300, 400 } );  // constructor of vector of integers from brace enclosed initializer list
@@ -43,6 +45,7 @@ void setup () {
 
 
     // Examples of vector assignment
+    Serial.println ("--- vector assignment ---");
     //v2 = { 3, 2, 1 };                           // assignment from brace enclosed initializer list
     v2.clear ();
     v2.push_back (3);
@@ -52,6 +55,7 @@ void setup () {
 
 
     // Example of vector comparison
+    Serial.println ("--- vector comparison ---");    
     if ( v2 == v3 )
         Serial.println ("v2 and v3 are equal");
     else
@@ -59,12 +63,14 @@ void setup () {
 
 
     // Examples of inserting new elements to the vector
+    Serial.println ("--- push_back ---");
     v3.push_back (4);                           // insert 4 at the end of the vector
     v3.push_front (5);                          // please note that push_front is not a STL C++ vector member function
     v3.insert (2, 6);                           // insert 6 at position 2
 
 
     // Example of searching for an element in the vector
+    Serial.println ("--- find ---");
     int position = v3.find (4);
     if (position >= 0)
         Serial.println ("4 found in v3 at position " + String (position));
@@ -73,12 +79,14 @@ void setup () {
 
 
     // Examples of deleting elements from the vector
+    Serial.println ("--- erase ---");
     v3.erase (position);                        // delete element at selected position
     v3.pop_back ();                             // delete an element at the end of the vector
     v3.pop_front ();                            // please note that pop_front is not a STL C++ vector member function
 
 
     // Examples of scanning through the vector elements
+    Serial.println ("--- vector scanning ---");
     for (int i = 0; i < v2.size (); i++)        // scan vector elements with their position index
         Serial.print (v2 [i]);
     Serial.println ();
@@ -88,22 +96,26 @@ void setup () {
 
 
     // Sorting vector elements
+    Serial.println ("--- sort ---");
     v3.sort ();
     for (auto e: v3)
         Serial.print (e);
     Serial.println ();
 
 
+    Serial.println ("--- min, max --- ");
     // Finding min and max elements of the vector
     auto minElement = min_element (v2);
     if (minElement)                             // check if min element is found (if v3 is not empty)
         Serial.println ("min element of v2 = " + String (*minElement));
+
     auto maxElement = max_element (v2);
     if (maxElement)                             // check if max element is found (if v3 is not empty)
         Serial.println ("max element of v2 = " + String (*maxElement));
 
 
     // Detecting errors that occured in vector operations
+    Serial.println ("--- error handling --- ");
     signed char e = v3.push_back (9);
     
     if (!e) // != OK
@@ -136,6 +148,7 @@ void setup () {
 
 
                 // capacity and speed test
+                Serial.println ("--- performance and capacity --- ");
                 v1.clear ();
                 v2.clear ();
                 v3.clear (); 
